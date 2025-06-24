@@ -1,0 +1,23 @@
+# apisix-registry-agent 配置模板
+env: development
+admin_api: "http://localhost:8000/apisix/admin"
+admin_key: "c7f41d319a8b0d5788db1e972e205acd"
+service_name: "zenglow-auth-service"
+service_id: "zenglow-auth-service"
+service_port: 50051
+proto_path: "../zenglow-auth-service/proto/zenglow_auth.proto"
+route_plugins:
+  - name: "grpc-transcode"
+    config:
+      proto_id: "zenglow-auth-service"
+      service: "auth.AuthService"
+      deadline: 10
+  - name: "key-auth"
+    config: {}
+ttl: 60
+max_retry: 5
+retry_interval: 2s
+upstream:
+  type: roundrobin
+  nodes:
+    "127.0.0.1:50051": 1

@@ -1,0 +1,90 @@
+package apisixregistryagent
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"time"
+)
+
+type ApisixClient struct {
+	AdminAPI      string
+	AdminKey      string
+	MaxRetry      int
+	RetryInterval time.Duration
+}
+
+func NewApisixClient(cfg *Config) *ApisixClient {
+	return &ApisixClient{
+		AdminAPI:      cfg.AdminAPI,
+		AdminKey:      cfg.AdminKey,
+		MaxRetry:      cfg.MaxRetry,
+		RetryInterval: cfg.RetryInterval,
+	}
+}
+
+func (c *ApisixClient) doRequest(method, path string, body interface{}) ([]byte, error) {
+	var data []byte
+	var err error
+	if body != nil {
+		data, err = json.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+	}
+	url := fmt.Sprintf("%s%s", c.AdminAPI, path)
+	for i := 0; i < c.MaxRetry; i++ {
+		req, err := http.NewRequest(method, url, bytes.NewReader(data))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("X-API-KEY", c.AdminKey)
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err == nil && resp.StatusCode < 300 {
+			defer resp.Body.Close()
+			return ioutil.ReadAll(resp.Body)
+		}
+		time.Sleep(c.RetryInterval * time.Duration(i+1))
+	}
+	return nil, fmt.Errorf("APISIX request failed after %d retries", c.MaxRetry)
+}
+
+// Service/Route/Upstream/Proto 注册、反注册接口
+func (c *ApisixClient) RegisterService(id string, svc map[string]interface{}) error {
+	_, err := c.doRequest("PUT", "/services/"+id, svc)
+	return err
+}
+func (c *ApisixClient) DeleteService(id string) error {
+	_, err := c.doRequest("DELETE", "/services/"+id, nil)
+	return err
+}
+func (c *ApisixClient) RegisterRoute(id string, route map[string]interface{}) error {
+	_, err := c.doRequest("PUT", "/routes/"+id, route)
+	return err
+}
+func (c *ApisixClient) DeleteRoute(id string) error {
+	_, err := c.doRequest("DELETE", "/routes/"+id, nil)
+	return err
+}
+func (c *ApisixClient) RegisterProto(id string, protoContent string) error {
+	body := map[string]interface{}{"content": protoContent}
+	_, err := c.doRequest("POST", "/proto/"+id, body)
+	return err
+}
+func (c *ApisixClient) DeleteProto(id string) error {
+	_, err := c.doRequest("DELETE", "/proto/"+id, nil)
+	return err
+}
+func (c *ApisixClient) RegisterUpstream(id string, upstream map[string]interface{}) error {
+	_, err := c.doRequest("PUT", "/upstreams/"+id, upstream)
+	return err
+}
+func (c *ApisixClient) DeleteUpstream(id string) error {
+	_, err := c.doRequest("DELETE", "/upstreams/"+id, nil)
+	return err
+}
