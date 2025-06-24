@@ -1,4 +1,4 @@
-module zenglow.io/mods/apisix-registry-agent
+module github.com/cncap/apisix-registry-agent
 
 go 1.24.3
 

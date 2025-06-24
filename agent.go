@@ -3,7 +3,8 @@ package apisixregistryagent
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"os"
 	"os/signal"
 	"syscall"
 )
@@ -43,8 +44,12 @@ func Run(cfg *Config) error {
 	}
 	// 3. 注册 Proto
 	if cfg.ProtoPath != "" {
-		protoContent, _ := ioutil.ReadFile(cfg.ProtoPath)
-		client.RegisterProto(serviceID, string(protoContent))
+		if file, err := os.Open(cfg.ProtoPath); err == nil {
+			defer file.Close()
+			if protoContent, err := io.ReadAll(file); err == nil {
+				client.RegisterProto(serviceID, string(protoContent))
+			}
+		}
 	}
 	// 4. 注册 Upstream（可选）
 	if cfg.Upstream != nil {

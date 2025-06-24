@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 )
@@ -47,7 +47,7 @@ func (c *ApisixClient) doRequest(method, path string, body interface{}) ([]byte,
 		resp, err := http.DefaultClient.Do(req)
 		if err == nil && resp.StatusCode < 300 {
 			defer resp.Body.Close()
-			return ioutil.ReadAll(resp.Body)
+			return io.ReadAll(resp.Body)
 		}
 		time.Sleep(c.RetryInterval * time.Duration(i+1))
 	}
