@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"strings"
 )
 
 // 解析 proto 文件中的 google.api.http 注解，生成 APISIX 路由规则
@@ -25,9 +26,11 @@ func ParseProtoHttpRules(protoPath string) ([]map[string]interface{}, error) {
 	for _, m := range matches {
 		method := m[1]
 		uri := m[2]
+		methodUpper := strings.ToUpper(method)
 		routes = append(routes, map[string]interface{}{
 			"uri":     uri,
-			"methods": []string{method},
+			"method":  methodUpper,
+			"methods": []string{methodUpper},
 		})
 	}
 	return routes, nil

@@ -40,7 +40,7 @@ service TestService {
 	if routes[0]["uri"] != "/v1/test/{id}" || routes[1]["uri"] != "/v1/test" {
 		t.Errorf("unexpected uri: %+v", routes)
 	}
-	if routes[0]["methods"].([]string)[0] != "get" || routes[1]["methods"].([]string)[0] != "post" {
-		t.Errorf("unexpected methods: %+v", routes)
+	if routes[0]["method"].([]string)[0] != "get" || routes[1]["method"].([]string)[0] != "post" {
+		t.Errorf("unexpected method: %+v", routes)
 	}
 }

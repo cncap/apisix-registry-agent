@@ -31,8 +31,6 @@ route_plugins:
       proto_id: "your-service"
       service: "your.Service"
       deadline: 10
-  - name: "key-auth"
-    config: {}
 ttl: 60
 max_retry: 5
 retry_interval: 2s
@@ -172,4 +170,7 @@ MIT License
 - Docs: Added Upstream Strategy, CLI Usage, and Test Coverage sections.
 - Breaking: Service/Upstream registration logic now fully compatible with APISIX v3 Admin API.
 
----
+### v0.1.0 (2024-06-01)
+- Initial release: automatic APISIX registration for service, route, upstream, proto.
+- Supports proto parsing, plugin templates, graceful shutdown, retry, YAML+ENV config.
+- Compatible with APISIX v2 Admin API.

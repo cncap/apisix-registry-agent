@@ -81,11 +81,11 @@ func (c *ApisixClient) DeleteRoute(id string) error {
 }
 func (c *ApisixClient) RegisterProto(id string, protoContent string) error {
 	body := map[string]interface{}{"content": protoContent}
-	_, err := c.doRequest("POST", "/proto/"+id, body)
+	_, err := c.doRequest("POST", "/protos", body)
 	return err
 }
 func (c *ApisixClient) DeleteProto(id string) error {
-	_, err := c.doRequest("DELETE", "/proto/"+id, nil)
+	_, err := c.doRequest("DELETE", "/protos/"+id, nil)
 	return err
 }
 func (c *ApisixClient) RegisterUpstream(id string, upstream map[string]interface{}) error {

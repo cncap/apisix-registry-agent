@@ -15,6 +15,7 @@ type Config struct {
 	ServiceID     string        `yaml:"service_id"`
 	ServicePort   int           `yaml:"service_port"`
 	ProtoPath     string        `yaml:"proto_path"`
+	ProtoPbPath   string        `yaml:"proto_pb_path"`
 	RoutePlugins  []PluginSpec  `yaml:"route_plugins"`
 	Upstream      *UpstreamSpec `yaml:"upstream,omitempty"`
 	TTL           int           `yaml:"ttl"`
@@ -40,7 +41,9 @@ func LoadConfig(path string) (*Config, error) {
 	if file, err := os.Open(path); err == nil {
 		defer file.Close()
 		if data, err := io.ReadAll(file); err == nil {
-			yaml.Unmarshal(data, cfg)
+			// 支持 ENV 占位符自动替换
+			content := os.ExpandEnv(string(data))
+			yaml.Unmarshal([]byte(content), cfg)
 		}
 	}
 	// ENV 覆盖
@@ -50,11 +53,15 @@ func LoadConfig(path string) (*Config, error) {
 	if v := os.Getenv("SERVICE_ID"); v != "" {
 		cfg.ServiceID = v
 	}
-	if v := os.Getenv("SERVICE_PORT"); v != "" {
+	if v := os.Getenv("SERVICE_GRPC_PORT"); v != "" {
 		// parse int
 	}
 	if v := os.Getenv("PROTO_PATH"); v != "" {
 		cfg.ProtoPath = v
 	}
+	if v := os.Getenv("PROTO_PB_PATH"); v != "" {
+		cfg.ProtoPbPath = v
+	}
+
 	return cfg, nil
 }

@@ -2,6 +2,7 @@ package apisixregistryagent
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -108,12 +109,24 @@ func Run(cfg *Config) error {
 			"desc":       "Auto registered by apisix-registry-agent",
 			"service_id": serviceID,
 			"uri":        r["uri"],
-			"methods":    r["methods"],
+		}
+		// 支持 methods 字段（数组）
+		if ms, ok := r["methods"]; ok {
+			route["methods"] = ms
 		}
 		if len(cfg.RoutePlugins) > 0 {
 			plugins := map[string]interface{}{}
 			for _, p := range cfg.RoutePlugins {
-				plugins[p.Name] = p.Config
+				pluginConfig := p.Config
+				// 自动补充 grpc-transcode 的 method 字段
+				if p.Name == "grpc-transcode" {
+					if _, ok := pluginConfig["method"]; !ok {
+						if m, ok := r["method"]; ok {
+							pluginConfig["method"] = m
+						}
+					}
+				}
+				plugins[p.Name] = pluginConfig
 			}
 			route["plugins"] = plugins
 		}
@@ -124,11 +137,20 @@ func Run(cfg *Config) error {
 		}
 	}
 	// 4. 注册 Proto
-	if cfg.ProtoPath != "" {
-		if file, err := os.Open(cfg.ProtoPath); err == nil {
+	if cfg.ProtoPbPath != "" {
+		// 判断是否为 .pb 文件（descriptor），需要 base64 编码
+		if file, err := os.Open(cfg.ProtoPbPath); err == nil {
 			defer file.Close()
 			if protoContent, err := io.ReadAll(file); err == nil {
-				if err := client.RegisterProto(serviceID, string(protoContent)); err != nil {
+				var content string
+				if len(cfg.ProtoPbPath) > 3 && cfg.ProtoPbPath[len(cfg.ProtoPbPath)-3:] == ".pb" {
+					// .pb 文件，base64 编码
+					content = encodeBase64(protoContent)
+				} else {
+					// 普通 proto 文件，直接用文本
+					content = string(protoContent)
+				}
+				if err := client.RegisterProto(serviceID, content); err != nil {
 					log.Printf("[APISIX-AGENT] RegisterProto failed: %v", err)
 				} else {
 					log.Printf("[APISIX-AGENT] Proto registered: %s", serviceID)
@@ -153,4 +175,9 @@ func Run(cfg *Config) error {
 	}
 	log.Printf("[APISIX-AGENT] Deregistration complete.")
 	return nil
+}
+
+// encodeBase64 工具函数
+func encodeBase64(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
 }
