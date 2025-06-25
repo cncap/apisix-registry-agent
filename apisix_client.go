@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -37,6 +38,7 @@ func (c *ApisixClient) doRequest(method, path string, body interface{}) ([]byte,
 	url := fmt.Sprintf("%s%s", c.AdminAPI, path)
 	for i := 0; i < c.MaxRetry; i++ {
 		req, err := http.NewRequest(method, url, bytes.NewReader(data))
+
 		if err != nil {
 			return nil, err
 		}
@@ -44,10 +46,16 @@ func (c *ApisixClient) doRequest(method, path string, body interface{}) ([]byte,
 		if body != nil {
 			req.Header.Set("Content-Type", "application/json")
 		}
+
 		resp, err := http.DefaultClient.Do(req)
-		if err == nil && resp.StatusCode < 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		if resp != nil {
 			defer resp.Body.Close()
-			return io.ReadAll(resp.Body)
+		}
+		if err == nil && resp.StatusCode < 300 {
+			return respBody, nil
+		} else {
+			log.Printf("[APISIX-AGENT][WARN] %s %s failed: status=%d, err=%v, resp=%s", method, url, resp.StatusCode, err, string(respBody))
 		}
 		time.Sleep(c.RetryInterval * time.Duration(i+1))
 	}

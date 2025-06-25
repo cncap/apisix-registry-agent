@@ -1,13 +1,19 @@
 package apisixregistryagent
 
 import (
-	"io/ioutil"
+	"io"
+	"os"
 	"regexp"
 )
 
 // 解析 proto 文件中的 google.api.http 注解，生成 APISIX 路由规则
 func ParseProtoHttpRules(protoPath string) ([]map[string]interface{}, error) {
-	data, err := ioutil.ReadFile(protoPath)
+	file, err := os.Open(protoPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	data, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err
 	}
