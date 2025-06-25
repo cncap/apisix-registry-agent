@@ -159,3 +159,17 @@ registry-agent --env prod \
 PRs and issues are welcome!
 
 MIT License
+
+## CHANGELOG
+
+### v0.2.0 (2025-06-25)
+- Feature: Upstream registration now supports both static node and service discovery (Kubernetes/DNS) strategies.
+- Feature: CLI flags for `--env`, `--use-discovery`, `--discovery-type`, `--static-node`, `--discovery-service-name`.
+- Feature: Environment variable and CLI override for all major options.
+- Feature: Helper functions for service name generation and upstream construction.
+- Enhancement: Improved logging and error output for registration failures.
+- Enhancement: Test coverage for both static and discovery upstream registration.
+- Docs: Added Upstream Strategy, CLI Usage, and Test Coverage sections.
+- Breaking: Service/Upstream registration logic now fully compatible with APISIX v3 Admin API.
+
+---
