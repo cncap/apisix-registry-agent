@@ -41,10 +41,16 @@ func (c *ApisixClient) doRequest(method, path string, body interface{}) ([]byte,
 	for i := 0; i < c.MaxRetry; i++ {
 		req, err := http.NewRequest(method, url, bytes.NewReader(data))
 
+		if c.Debug {
+			log.Printf("[APISIX-AGENT][DEBUG] %s %s request body: %s \n", method, url, string(data))
+		}
+
 		if err != nil {
 			return nil, err
 		}
+
 		req.Header.Set("X-API-KEY", c.AdminKey)
+
 		if body != nil {
 			req.Header.Set("Content-Type", "application/json")
 		}
@@ -53,9 +59,8 @@ func (c *ApisixClient) doRequest(method, path string, body interface{}) ([]byte,
 		respBody, _ := io.ReadAll(resp.Body)
 
 		if c.Debug {
-			log.Printf("[APISIX-AGENT][DEBUG] %s %s request body: %s \n", method, url, string(data))
+			log.Printf("[APISIX-AGENT][DEBUG] %s %s response body: %s \n", method, url, string(respBody))
 		}
-		// log.Printf("[APISIX-AGENT][DEBUG] %s %s request body: %s \n", method, url, string(data))
 
 		if resp != nil {
 			defer resp.Body.Close()
