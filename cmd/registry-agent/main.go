@@ -11,7 +11,7 @@ import (
 
 func main() {
 	var (
-		configPath              = flag.String("config", "./registry.yaml", "Path to registry.yaml config file")
+		configPath              = flag.String("config", "./registry-config.yaml", "Path to registry-config.yaml config file")
 		env                     = flag.String("env", "dev", "Environment: dev or prod")
 		useDiscovery            = flag.Bool("use-discovery", false, "Enable service discovery for upstream")
 		discoveryType           = flag.String("discovery-type", "", "Discovery type: dns, kubernetes, ...")

@@ -16,7 +16,7 @@ A Go agent for automatic registration and deregistration of microservices to API
 ## Quick Start
 
 1. **Add the module to your Go project** (local replace or go get)
-2. **Configure `registry.yaml` or use environment variables**
+2. **Configure `registry-config.yaml` or use environment variables**
 
 ```yaml
 admin_api: "http://localhost:8000/apisix/admin"
@@ -46,7 +46,7 @@ upstream:
 import apisixagent "github.com/cncap/apisix-registry-agent"
 
 func main() {
-    cfg, _ := apisixagent.LoadConfig("path/to/registry.yaml")
+    cfg, _ := apisixagent.LoadConfig("path/to/registry-config.yaml")
     go apisixagent.Run(cfg)
     // ...your service startup...
 }
@@ -130,7 +130,7 @@ This strategy enables seamless migration from local to cloud-native environments
 You can run the agent with flexible CLI flags to override config and environment:
 
 ```sh
-registry-agent --config ./registry.yaml \
+registry-agent --config ./registry-config.yaml \
   --env dev \
   --static-node 127.0.0.1:50051=1
 

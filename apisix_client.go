@@ -49,6 +49,9 @@ func (c *ApisixClient) doRequest(method, path string, body interface{}) ([]byte,
 
 		resp, err := http.DefaultClient.Do(req)
 		respBody, _ := io.ReadAll(resp.Body)
+
+		// log.Printf("[APISIX-AGENT][DEBUG] %s %s request body: %s \n", method, url, string(data))
+
 		if resp != nil {
 			defer resp.Body.Close()
 		}

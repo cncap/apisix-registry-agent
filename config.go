@@ -9,6 +9,9 @@ import (
 )
 
 type Config struct {
+	// APISIX 管理 API 地址和密钥
+	// 支持通过环境变量 APISIX_ADMIN_API 和 APISIX_ADMIN_KEY 设置
+	// 如果未设置，则使用默认值 http://
 	AdminAPI      string        `yaml:"admin_api"`
 	AdminKey      string        `yaml:"admin_key"`
 	ServiceName   string        `yaml:"service_name"`
