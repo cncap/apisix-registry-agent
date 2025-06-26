@@ -11,6 +11,7 @@ import (
 )
 
 type ApisixClient struct {
+	Debug         bool
 	AdminAPI      string
 	AdminKey      string
 	MaxRetry      int
@@ -19,6 +20,7 @@ type ApisixClient struct {
 
 func NewApisixClient(cfg *Config) *ApisixClient {
 	return &ApisixClient{
+		Debug:         cfg.Debug,
 		AdminAPI:      cfg.AdminAPI,
 		AdminKey:      cfg.AdminKey,
 		MaxRetry:      cfg.MaxRetry,
@@ -50,6 +52,9 @@ func (c *ApisixClient) doRequest(method, path string, body interface{}) ([]byte,
 		resp, err := http.DefaultClient.Do(req)
 		respBody, _ := io.ReadAll(resp.Body)
 
+		if c.Debug {
+			log.Printf("[APISIX-AGENT][DEBUG] %s %s request body: %s \n", method, url, string(data))
+		}
 		// log.Printf("[APISIX-AGENT][DEBUG] %s %s request body: %s \n", method, url, string(data))
 
 		if resp != nil {

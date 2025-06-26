@@ -13,6 +13,7 @@ type Config struct {
 	// APISIX 管理 API 地址和密钥
 	// 支持通过环境变量 APISIX_ADMIN_API 和 APISIX_ADMIN_KEY 设置
 	// 如果未设置，则使用默认值 http://
+	Debug          bool          `yaml:"debug"`
 	AdminAPI       string        `yaml:"admin_api"`
 	AdminKey       string        `yaml:"admin_key"`
 	ServiceVersion string        `yaml:"service_version"`
@@ -42,6 +43,7 @@ func LoadConfig(path string) (*Config, error) {
 	cfg := &Config{
 		AdminAPI: os.Getenv("APISIX_ADMIN_API"),
 		AdminKey: os.Getenv("APISIX_ADMIN_KEY"),
+		Debug:    false, // 默认不启用调试模式
 	}
 	if file, err := os.Open(path); err == nil {
 		defer file.Close()
@@ -51,7 +53,13 @@ func LoadConfig(path string) (*Config, error) {
 			yaml.Unmarshal([]byte(content), cfg)
 		}
 	}
+
 	// ENV 覆盖
+	if v := os.Getenv("APISIX_AGENT_DEBUG"); v != "" {
+		if _debug, err := strconv.ParseBool(v); err == nil {
+			cfg.Debug = _debug
+		}
+	}
 	if v := os.Getenv("APISIX_ADMIN_API"); v != "" {
 		cfg.AdminAPI = v
 	}
