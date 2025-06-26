@@ -3,6 +3,7 @@ package apisixregistryagent
 import (
 	"io"
 	"os"
+	"strconv"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -65,6 +66,14 @@ func LoadConfig(path string) (*Config, error) {
 	if v := os.Getenv("PROTO_PB_PATH"); v != "" {
 		cfg.ProtoPbPath = v
 	}
+	if v := os.Getenv("MAX_RETRY"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.MaxRetry = n
+		}
+	}
 
+	if cfg.MaxRetry <= 0 {
+		cfg.MaxRetry = 3 // 或你想要的默认重试次数
+	}
 	return cfg, nil
 }
