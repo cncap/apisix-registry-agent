@@ -56,19 +56,25 @@ func (c *ApisixClient) doRequest(method, path string, body interface{}) ([]byte,
 		}
 
 		resp, err := http.DefaultClient.Do(req)
-		respBody, _ := io.ReadAll(resp.Body)
+		var respBody []byte
+
+		if resp != nil {
+			defer resp.Body.Close()
+			respBody, _ = io.ReadAll(resp.Body)
+		}
 
 		if c.Debug {
 			log.Printf("[APISIX-AGENT][DEBUG] %s %s response body: %s \n", method, url, string(respBody))
 		}
 
-		if resp != nil {
-			defer resp.Body.Close()
-		}
-		if err == nil && resp.StatusCode < 300 {
+		if err == nil && resp != nil && resp.StatusCode < 300 {
 			return respBody, nil
 		} else {
-			log.Printf("[APISIX-AGENT][WARN] %s %s failed: status=%d, err=%v, resp=%s", method, url, resp.StatusCode, err, string(respBody))
+			statusCode := 0
+			if resp != nil {
+				statusCode = resp.StatusCode
+			}
+			log.Printf("[APISIX-AGENT][WARN] %s %s failed: status=%d, err=%v, resp=%s", method, url, statusCode, err, string(respBody))
 		}
 		time.Sleep(c.RetryInterval * time.Duration(i+1))
 	}
@@ -94,7 +100,7 @@ func (c *ApisixClient) DeleteRoute(id string) error {
 }
 func (c *ApisixClient) RegisterProto(id string, protoContent string) error {
 	body := map[string]interface{}{"content": protoContent}
-	_, err := c.doRequest("POST", "/protos", body)
+	_, err := c.doRequest("PUT", "/protos/"+id, body)
 	return err
 }
 func (c *ApisixClient) DeleteProto(id string) error {

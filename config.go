@@ -56,8 +56,8 @@ func LoadConfig(path string) (*Config, error) {
 
 	// ENV 覆盖
 	if v := os.Getenv("APISIX_AGENT_DEBUG"); v != "" {
-		if _debug, err := strconv.ParseBool(v); err == nil {
-			cfg.Debug = _debug
+		if d, err := strconv.ParseBool(v); err == nil {
+			cfg.Debug = d
 		}
 	}
 	if v := os.Getenv("APISIX_ADMIN_API"); v != "" {

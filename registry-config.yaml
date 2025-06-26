@@ -12,7 +12,7 @@ route_plugins:
   - name: "grpc-transcode"
     config:
       proto_id: "service-id"
-      service: "auth.AuthService"
+      service: "package.Service"
       deadline: 10
 ttl: 60
 max_retry: 5
