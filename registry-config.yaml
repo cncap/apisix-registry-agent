@@ -1,14 +1,16 @@
 # apisix-registry-agent 配置模板
-admin_api: "${APISIX_ADMIN_API}"
-admin_key: "${APISIX_ADMIN_KEY}"
-service_name: "${SERVICE_NAME}"
-service_id: "${SERVICE_ID}"
-service_port: ${SERVICE_GRPC_PORT}
-proto_path: "${PROTO_PATH}"
+admin_api: "http://apisix:9180/apisix/admin"
+admin_key: "your-admin-key"
+service_version: "v1.0.0"
+service_name: "service-name"
+service_id: "service-id"
+service_port: 8082
+proto_path: "../proto/service.proto"
+proto_pb_path: "./proto/service.pb"
 route_plugins:
   - name: "grpc-transcode"
     config:
-      proto_id: "${SERVICE_ID}"
+      proto_id: "service-id"
       service: "auth.AuthService"
       deadline: 10
 ttl: 60
@@ -17,4 +19,5 @@ retry_interval: 2s
 upstream:
   type: roundrobin
   nodes:
-    "127.0.0.1:${SERVICE_GRPC_PORT}": 1
+    "zenglow-auth-service:8082": 1
+
