@@ -77,6 +77,7 @@ func Run(cfg *Config) error {
 	if cfg.Upstream != nil && len(cfg.Upstream.Nodes) > 0 {
 		opts.StaticNodes = cfg.Upstream.Nodes
 	}
+
 	upstream, err := BuildUpstream(opts)
 	if err != nil {
 		log.Printf("[APISIX-AGENT] BuildUpstream error: %v", err)
@@ -101,7 +102,9 @@ func Run(cfg *Config) error {
 	log.Printf("[APISIX-AGENT] Service registered: %s", serviceID)
 	// 3. 注册 Route
 	routes, _ := ParseProtoHttpRules(cfg.ProtoPath)
+	// log.Printf("--------------------------", routes)
 	for i, r := range routes {
+		log.Printf("[DEBUG] parsed route: %+v", r) // 输出每个 route 解析结果
 		id := fmt.Sprintf("%s-%d", serviceID, i)
 		route := map[string]interface{}{
 			"id":         id,
@@ -110,26 +113,30 @@ func Run(cfg *Config) error {
 			"service_id": serviceID,
 			"uri":        r["uri"],
 		}
-		// 支持 methods 字段（数组）
 		if ms, ok := r["methods"]; ok {
 			route["methods"] = ms
 		}
 		if len(cfg.RoutePlugins) > 0 {
 			plugins := map[string]interface{}{}
 			for _, p := range cfg.RoutePlugins {
-				pluginConfig := p.Config
-				// 自动补充 grpc-transcode 的 method 字段
+				pluginConfig := make(map[string]interface{})
+				for k, v := range p.Config {
+					pluginConfig[k] = v
+				}
 				if p.Name == "grpc-transcode" {
-					if _, ok := pluginConfig["method"]; !ok {
-						if m, ok := r["method"]; ok {
-							pluginConfig["method"] = m
-						}
+					gm, ok := r["grpc_method"]
+					if !ok || gm == nil || gm == "" {
+						log.Printf("[APISIX-AGENT] ERROR: grpc_method not found for route %v, skip grpc-transcode method", r)
+						continue
 					}
+					pluginConfig["method"] = gm
+					log.Printf("[DEBUG] grpc-transcode method set: %v", gm)
 				}
 				plugins[p.Name] = pluginConfig
 			}
 			route["plugins"] = plugins
 		}
+		log.Printf("[DEBUG] final route to register: %+v", route)
 		if err := client.RegisterRoute(id, route); err != nil {
 			log.Printf("[APISIX-AGENT] RegisterRoute failed: %v", err)
 		} else {
