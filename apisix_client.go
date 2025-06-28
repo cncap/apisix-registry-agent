@@ -42,7 +42,7 @@ func (c *ApisixClient) doRequest(method, path string, body interface{}) ([]byte,
 		req, err := http.NewRequest(method, url, bytes.NewReader(data))
 
 		if c.Debug {
-			// log.Printf("[APISIX-AGENT][DEBUG] %s %s request body: %s \n", method, url, string(data))
+			log.Printf("[APISIX-AGENT][DEBUG] %s %s request body: %s \n", method, url, string(data))
 		}
 
 		if err != nil {
@@ -64,7 +64,7 @@ func (c *ApisixClient) doRequest(method, path string, body interface{}) ([]byte,
 		}
 
 		if c.Debug {
-			// log.Printf("[APISIX-AGENT][DEBUG] %s %s response body: %s \n", method, url, string(respBody))
+			log.Printf("[APISIX-AGENT][DEBUG] %s %s response body: %s \n", method, url, string(respBody))
 		}
 
 		if err == nil && resp != nil && resp.StatusCode < 300 {

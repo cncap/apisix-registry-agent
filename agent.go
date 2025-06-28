@@ -1,14 +1,11 @@
 package apisixregistryagent
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 )
 
 type Options struct {
@@ -104,7 +101,9 @@ func Run(cfg *Config) error {
 	routes, _ := ParseProtoHttpRules(cfg.ProtoPath)
 	// log.Printf("--------------------------", routes)
 	for i, r := range routes {
-		log.Printf("[DEBUG] parsed route: %+v", r) // 输出每个 route 解析结果
+		if cfg.Debug {
+			log.Printf("[APISIX-AGENT][DEBUG] parsed route: %+v", r) // 输出每个 route 解析结果
+		}
 		id := fmt.Sprintf("%s-%d", serviceID, i)
 		route := map[string]interface{}{
 			"id":         id,
@@ -130,13 +129,17 @@ func Run(cfg *Config) error {
 						continue
 					}
 					pluginConfig["method"] = gm
-					log.Printf("[DEBUG] grpc-transcode method set: %v", gm)
+					if cfg.Debug {
+						log.Printf("[APISIX-AGENT][DEBUG] grpc-transcode method set: %v", gm)
+					}
 				}
 				plugins[p.Name] = pluginConfig
 			}
 			route["plugins"] = plugins
 		}
-		log.Printf("[DEBUG] final route to register: %+v", route)
+		if cfg.Debug {
+			log.Printf("[APISIX-AGENT][DEBUG] final route to register: %+v", route)
+		}
 		if err := client.RegisterRoute(id, route); err != nil {
 			log.Printf("[APISIX-AGENT] RegisterRoute failed: %v", err)
 		} else {
@@ -162,25 +165,29 @@ func Run(cfg *Config) error {
 				} else {
 					log.Printf("[APISIX-AGENT] Proto registered: %s", serviceID)
 				}
+			} else {
+				log.Printf("[APISIX-AGENT] Error reading proto file: %v", err)
 			}
+		} else {
+			log.Printf("[APISIX-AGENT] Error opening proto file: %v", err)
 		}
 	}
 	// 5. 捕获退出信号，自动反注册
-	log.Printf("[APISIX-AGENT] Waiting for shutdown signal...")
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-	<-ctx.Done()
-	log.Printf("[APISIX-AGENT] Deregistering...")
-	client.DeleteService(serviceID)
-	for i := range routes {
-		id := fmt.Sprintf("%s-%d", serviceID, i)
-		client.DeleteRoute(id)
-	}
-	client.DeleteProto(serviceID)
-	if cfg.Upstream != nil {
-		client.DeleteUpstream(serviceID)
-	}
-	log.Printf("[APISIX-AGENT] Deregistration complete.")
+	// log.Printf("[APISIX-AGENT] Waiting for shutdown signal...")
+	// ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	// defer stop()
+	// <-ctx.Done()
+	// log.Printf("[APISIX-AGENT] Deregistering...")
+	// client.DeleteService(serviceID)
+	// for i := range routes {
+	// 	id := fmt.Sprintf("%s-%d", serviceID, i)
+	// 	client.DeleteRoute(id)
+	// }
+	// client.DeleteProto(serviceID)
+	// if cfg.Upstream != nil {
+	// 	client.DeleteUpstream(serviceID)
+	// }
+	// log.Printf("[APISIX-AGENT] Deregistration complete.")
 	return nil
 }
 

@@ -37,7 +37,7 @@ func ParseProtoHttpRules(protoPath string) ([]map[string]interface{}, error) {
 	for _, svc := range services {
 		serviceName := svc[1]
 		serviceBody := svc[2]
-		log.Printf("[PROTO-PARSER] serviceBody for %s (len=%d): ...%s", serviceName, len(serviceBody), serviceBody[len(serviceBody)-100:])
+		// log.Printf("[PROTO-PARSER] serviceBody for %s (len=%d): ...%s", serviceName, len(serviceBody), serviceBody[len(serviceBody)-100:])
 		// 用 strings.Split 分割每个 rpc
 		rpcBlocks := strings.Split(serviceBody, "rpc ")
 		if len(rpcBlocks) <= 1 {
