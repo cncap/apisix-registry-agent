@@ -1,11 +1,14 @@
 package apisixregistryagent
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 type Options struct {
@@ -99,7 +102,6 @@ func Run(cfg *Config) error {
 	log.Printf("[APISIX-AGENT] Service registered: %s", serviceID)
 	// 3. 注册 Route
 	routes, _ := ParseProtoHttpRules(cfg.ProtoPath)
-	// log.Printf("--------------------------", routes)
 	for i, r := range routes {
 		if cfg.Debug {
 			log.Printf("[APISIX-AGENT][DEBUG] parsed route: %+v", r) // 输出每个 route 解析结果
@@ -173,21 +175,21 @@ func Run(cfg *Config) error {
 		}
 	}
 	// 5. 捕获退出信号，自动反注册
-	// log.Printf("[APISIX-AGENT] Waiting for shutdown signal...")
-	// ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	// defer stop()
-	// <-ctx.Done()
-	// log.Printf("[APISIX-AGENT] Deregistering...")
-	// client.DeleteService(serviceID)
-	// for i := range routes {
-	// 	id := fmt.Sprintf("%s-%d", serviceID, i)
-	// 	client.DeleteRoute(id)
-	// }
-	// client.DeleteProto(serviceID)
-	// if cfg.Upstream != nil {
-	// 	client.DeleteUpstream(serviceID)
-	// }
-	// log.Printf("[APISIX-AGENT] Deregistration complete.")
+	log.Printf("[APISIX-AGENT] Waiting for shutdown signal...")
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	<-ctx.Done()
+	log.Printf("[APISIX-AGENT] Deregistering...")
+	for i := range routes {
+		id := fmt.Sprintf("%s-%d", serviceID, i)
+		client.DeleteRoute(id)
+	}
+	client.DeleteProto(serviceID)
+	client.DeleteService(serviceID)
+	if cfg.Upstream != nil {
+		client.DeleteUpstream(serviceID)
+	}
+	log.Printf("[APISIX-AGENT] Deregistration complete.")
 	return nil
 }
 

@@ -1,6 +1,6 @@
 # apisix-registry-agent 配置模板
 debug: false
-admin_api: "http://apisix:9180/apisix/admin"
+admin_api: ${APISIX_ADMIN_API}
 admin_key: "your-admin-key"
 service_version: "v1.0.0"
 service_name: "service-name"
@@ -20,5 +20,4 @@ retry_interval: 2s
 upstream:
   type: roundrobin
   nodes:
-    "zenglow-auth-service:8082": 1
-
+    "${SERVICE_HOST_NAME}:8082": 1

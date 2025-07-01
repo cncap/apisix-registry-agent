@@ -2,6 +2,7 @@ package apisixregistryagent
 
 import (
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -45,6 +46,13 @@ func LoadConfig(path string) (*Config, error) {
 		AdminKey: os.Getenv("APISIX_ADMIN_KEY"),
 		Debug:    false, // 默认不启用调试模式
 	}
+
+	log.Printf("[APISIX-AGENT] Loading config from: %s\n", path)
+	log.Printf("[APISIX-AGENT] Environment: %s\n", os.Getenv("REGISTRY_ENV"))
+	log.Printf("[APISIX-AGENT] Use Discovery: %s\n", os.Getenv("REGISTRY_USE_DISCOVERY"))
+	log.Printf("[APISIX-AGENT] Discovery Type: %s\n", os.Getenv("REGISTRY_DISCOVERY_TYPE"))
+	// log.Printf("[APISIX-AGENT] Discovery Service Name: %s\n", os.Getenv("REGISTRY_DISCOVERY_SERVICE_NAME"))
+
 	if file, err := os.Open(path); err == nil {
 		defer file.Close()
 		if data, err := io.ReadAll(file); err == nil {
