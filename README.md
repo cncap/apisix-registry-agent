@@ -164,7 +164,7 @@ MIT License
 
 ## CHANGELOG
 
-### v0.2.1 (2025-07-03)
+### v1.0.2 (2025-07-03)
 - Feature: Automatic sync of all routes without multi-auth/jwt-auth/key-auth plugins to Go service anonymous whitelist (authctx.SetAnonymousPaths/SetAnonymousGRPCPaths), including gRPC method support, with hot-reload.
 - Feature: Automatic APISIX Consumer Registration: Supports multi-auth (JWT/key-auth) consumer registration based on config, with auto key field completion for jwt-auth.
 - Feature: Route Registration with Strong Validation: Custom route config takes precedence; auto-completes grpc-transcode required fields (method/proto_id/service) and validates presence.
@@ -176,7 +176,7 @@ MIT License
 - Enhancement: Config reload now uses hash check to avoid unnecessary reloads.
 - Docs: Updated feature list and changelog to reflect new automation and robustness features.
 
-### v0.2.0 (2025-06-25)
+### v1.0.1 (2025-06-25)
 - Feature: Upstream registration now supports both static node and service discovery (Kubernetes/DNS) strategies.
 - Feature: CLI flags for `--env`, `--use-discovery`, `--discovery-type`, `--static-node`, `--discovery-service-name`.
 - Feature: Environment variable and CLI override for all major options.
@@ -186,7 +186,7 @@ MIT License
 - Docs: Added Upstream Strategy, CLI Usage, and Test Coverage sections.
 - Breaking: Service/Upstream registration logic now fully compatible with APISIX v3 Admin API.
 
-### v0.1.0 (2024-06-01)
+### v1.0.0 (2024-06-01)
 - Initial release: automatic APISIX registration for service, route, upstream, proto.
 - Supports proto parsing, plugin templates, graceful shutdown, retry, YAML+ENV config.
 - Compatible with APISIX v2 Admin API.
