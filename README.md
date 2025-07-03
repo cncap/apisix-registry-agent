@@ -12,6 +12,10 @@ A Go agent for automatic registration and deregistration of microservices to API
 - Retry mechanism for registration failures (max_retry, interval, backoff)
 - YAML config + ENV override for environment awareness
 - CI/CD and registry integration ready
+- **[NEW]Automatic Consumer Registration** (multi-auth/JWT/key-auth, auto key field completion)
+- **[NEW]Automatic sync of anonymous HTTP/gRPC routes**: All routes without multi-auth/jwt-auth/key-auth plugins are auto-synced to Go service anonymous whitelist (authctx.SetAnonymousPaths/SetAnonymousGRPCPaths), with hot-reload
+- **[NEW]Idempotent and robust registration/deregistration**: All operations (Service, Upstream, Route, Proto) are retried and safe for repeated calls
+- **[NEW]Strong validation and auto-completion**: grpc-transcode plugin required fields (method/proto_id/service) are auto-filled and strictly checked
 
 ## Quick Start
 
@@ -84,7 +88,7 @@ The apisix-registry-agent supports both static node and service discovery upstre
   ```
 - Or via CLI:
   ```sh
-  registry-agent --env dev --static-node zenglow-auth-service:8082=1
+  registry-agent --env dev --static-node auth:8082=1
   ```
 
 ### Service Discovery Upstream (prod)
@@ -94,12 +98,12 @@ The apisix-registry-agent supports both static node and service discovery upstre
   upstream:
     type: roundrobin
     discovery_type: kubernetes
-    service_name: zenglow-auth-service.default.svc.cluster.local
+    service_name: auth.default.svc.cluster.local
     scheme: grpc
   ```
 - Or via CLI:
   ```sh
-  registry-agent --env prod --use-discovery true --discovery-type kubernetes --discovery-service-name zenglow-auth-service.default.svc.cluster.local
+  registry-agent --env prod --use-discovery true --discovery-type kubernetes --discovery-service-name auth.default.svc.cluster.local
   ```
 
 ### How it works
@@ -114,7 +118,7 @@ The apisix-registry-agent supports both static node and service discovery upstre
   ```
 - **Production/Kubernetes:**
   ```sh
-  registry-agent --env prod --use-discovery true --discovery-type kubernetes --discovery-service-name zenglow-auth-service.default.svc.cluster.local
+  registry-agent --env prod --use-discovery true --discovery-type kubernetes --discovery-service-name auth.default.svc.cluster.local
   ```
 
 ### Test Cases
@@ -137,7 +141,7 @@ registry-agent --config ./registry-config.yaml \
 registry-agent --env prod \
   --use-discovery true \
   --discovery-type kubernetes \
-  --discovery-service-name zenglow-auth-service.default.svc.cluster.local
+  --discovery-service-name auth.default.svc.cluster.local
 ```
 
 - `--env`: Switch between dev and prod
@@ -159,6 +163,18 @@ PRs and issues are welcome!
 MIT License
 
 ## CHANGELOG
+
+### v0.2.1 (2025-07-03)
+- Feature: Automatic sync of all routes without multi-auth/jwt-auth/key-auth plugins to Go service anonymous whitelist (authctx.SetAnonymousPaths/SetAnonymousGRPCPaths), including gRPC method support, with hot-reload.
+- Feature: Automatic APISIX Consumer Registration: Supports multi-auth (JWT/key-auth) consumer registration based on config, with auto key field completion for jwt-auth.
+- Feature: Route Registration with Strong Validation: Custom route config takes precedence; auto-completes grpc-transcode required fields (method/proto_id/service) and validates presence.
+- Feature: Idempotent and Robust Deregistration: Deregistration only loops protoRoutes, ensuring all proto_id-related routes are deleted. Proactively queries APISIX for any remaining routes referencing proto_id and force deletes them.
+- Feature: Automatic Anonymous Path Sync: On agent startup (and hot-reload), all routes in registry-config.yaml without multi-auth/jwt-auth/key-auth plugins are automatically synced to Go service's anonymous whitelist (authctx.SetAnonymousPaths/SetAnonymousGRPCPaths), supporting both HTTP and gRPC method whitelists.
+- Enhancement: All registration/deregistration operations are now idempotent and retried for robustness.
+- Enhancement: Deregistration logic unified to only loop protoRoutes, ensuring no route is missed.
+- Enhancement: Strong validation and auto-completion for grpc-transcode plugin fields.
+- Enhancement: Config reload now uses hash check to avoid unnecessary reloads.
+- Docs: Updated feature list and changelog to reflect new automation and robustness features.
 
 ### v0.2.0 (2025-06-25)
 - Feature: Upstream registration now supports both static node and service discovery (Kubernetes/DNS) strategies.

@@ -115,3 +115,32 @@ func (c *ApisixClient) DeleteUpstream(id string) error {
 	_, err := c.doRequest("DELETE", "/upstreams/"+id, nil)
 	return err
 }
+
+// RegisterConsumers 自动注册 APISIX Consumer，支持 multi-auth
+func RegisterConsumers(client *ApisixClient, consumers []ConsumerConfig) {
+	for _, c := range consumers {
+		plugins := map[string]interface{}{}
+		if c.JwtEnabled {
+			plugins["jwt-auth"] = map[string]interface{}{"key": c.Name}
+		}
+		if c.KeyAuthEnabled && c.KeyAuthKey != "" {
+			plugins["key-auth"] = map[string]interface{}{"key": c.KeyAuthKey}
+		}
+		if len(plugins) == 0 {
+			log.Printf("[APISIX-AGENT] Consumer %s: no auth plugin enabled, skip", c.Name)
+			continue
+		}
+		consumer := map[string]interface{}{
+			"username": c.Name,
+			"plugins":  plugins,
+		}
+		path := "/consumers/" + c.Name
+		// 幂等注册，已存在则跳过
+		_, err := client.doRequest("PUT", path, consumer)
+		if err != nil {
+			log.Printf("[APISIX-AGENT] RegisterConsumer failed for %s: %v", c.Name, err)
+		} else {
+			log.Printf("[APISIX-AGENT] Consumer registered: %s", c.Name)
+		}
+	}
+}

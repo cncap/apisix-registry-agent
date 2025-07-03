@@ -1,23 +1,66 @@
-# apisix-registry-agent 配置模板
+# apisix-registry-agent 配置模板（支持 multi-auth & Consumer 自动注册）
+
 debug: false
 admin_api: ${APISIX_ADMIN_API}
-admin_key: "your-admin-key"
+admin_key: "c7f41d319a8b0d5788db1e972e205acd"
+
 service_version: "v1.0.0"
-service_name: "service-name"
-service_id: "service-id"
+service_name: "auth"
+service_id: "auth"
 service_port: 8082
+
 proto_path: "./proto/service.proto"
 proto_pb_path: "./proto/service.pb"
-route_plugins:
-  - name: "grpc-transcode"
-    config:
-      proto_id: "service-id"
-      service: "package.Service"
-      deadline: 10
+
+# gRPC 服务发现配置
 ttl: 60
 max_retry: 5
 retry_interval: 2s
+
 upstream:
   type: roundrobin
   nodes:
     "${SERVICE_HOST_NAME}:8082": 1
+
+# 插件配置
+route_plugins:
+  - name: "multi-auth"
+    config:
+      auth_plugins:
+        - jwt-auth:
+            algorithm: RS256
+            public_key: |
+              -----BEGIN PUBLIC KEY-----
+              MIIBIj...n134Pp+XcPk.wZlL.uo.C38wIDAQAB
+              -----END PUBLIC KEY-----
+            key_claim_name: sub
+            header: authorization
+            store_in_ctx: true
+        - key-auth:
+            header: apikey
+            query: apikey
+            hide_credentials: true
+
+  - name: "grpc-transcode"
+    config:
+      proto_id: "auth"
+      service: "micro.AuthService"
+      deadline: 5000 # ms
+      match_type: only_annotated # 仅处理带有注解的 gRPC 方法
+
+# Consumer 注册配置（支持 jwt-auth + key-auth）
+consumers:
+  - name: "auth"
+    jwt_enabled: true
+    key_auth_enabled: true
+    key_auth_key: "zenglowauthkey"
+
+# 路由配置
+routes:
+
+
+# 注册行为说明:
+# consumers[].name	用作 consumer 的 username
+# jwt_enabled	是否启用 jwt-auth 插件（通常设为 true）
+# key_auth_enabled	是否启用 key-auth 插件，若为 true 且提供了 key，会写入插件配置
+# key_auth_key	指定该 consumer 的 API Key（比如用于 CLI 或 webhook 调用）

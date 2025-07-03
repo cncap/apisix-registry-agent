@@ -3,11 +3,13 @@ package apisixregistryagent
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -78,11 +80,16 @@ func Run(cfg *Config) error {
 		opts.StaticNodes = cfg.Upstream.Nodes
 	}
 
+	// 1.5 自动注册 APISIX Consumer（multi-auth）
+	if len(cfg.Consumers) > 0 {
+		RegisterConsumers(client, cfg.Consumers)
+	}
+
 	upstream, err := BuildUpstream(opts)
 	if err != nil {
 		log.Printf("[APISIX-AGENT] BuildUpstream error: %v", err)
 	} else {
-		if err := client.RegisterUpstream(serviceID, upstream); err != nil {
+		if err := registerUpstreamWithRetry(client, serviceID, upstream); err != nil {
 			log.Printf("[APISIX-AGENT] RegisterUpstream failed: %v", err)
 		} else {
 			log.Printf("[APISIX-AGENT] Upstream registered: %s", serviceID)
@@ -95,19 +102,97 @@ func Run(cfg *Config) error {
 		"desc":        "Auto registered by apisix-registry-agent",
 		"upstream_id": serviceID,
 	}
-	if err := client.RegisterService(serviceID, svc); err != nil {
+	if err := registerServiceWithRetry(client, serviceID, svc); err != nil {
 		log.Printf("[APISIX-AGENT] RegisterService failed: %v", err)
 		return err
 	}
 	log.Printf("[APISIX-AGENT] Service registered: %s", serviceID)
 	// 3. 注册 Route
+	var customRouteMap map[string]interface{}
+	if len(cfg.Routes) > 0 {
+		customRouteMap = make(map[string]interface{})
+		for _, cr := range cfg.Routes {
+			customRouteMap[cr.URI] = cr
+		}
+	}
 	routes, _ := ParseProtoHttpRules(cfg.ProtoPath)
 	for i, r := range routes {
-		if cfg.Debug {
-			log.Printf("[APISIX-AGENT][DEBUG] parsed route: %+v", r) // 输出每个 route 解析结果
-		}
 		id := fmt.Sprintf("%s-%d", serviceID, i)
-		route := map[string]interface{}{
+		var route map[string]interface{}
+		// 优先使用自定义路由配置
+		if customRouteMap != nil {
+			if cr, ok := customRouteMap[r["uri"].(string)]; ok {
+				// 用自定义配置覆盖 proto 解析结果
+				route = map[string]interface{}{
+					"id":         id,
+					"name":       id,
+					"desc":       "Auto registered by apisix-registry-agent (custom config)",
+					"service_id": serviceID,
+					"uri":        cr.(RouteConfig).URI,
+				}
+				if len(cr.(RouteConfig).Methods) > 0 {
+					route["methods"] = cr.(RouteConfig).Methods
+				}
+				if len(cr.(RouteConfig).Plugins) > 0 {
+					plugins := map[string]interface{}{}
+					for _, p := range cr.(RouteConfig).Plugins {
+						pluginConfig := make(map[string]interface{})
+						for k, v := range p.Config {
+							pluginConfig[k] = v
+						}
+						// 自动补全 grpc-transcode method 字段
+						if p.Name == "grpc-transcode" {
+							if pluginConfig["method"] == nil {
+								if gm, ok := r["grpc_method"]; ok && gm != nil && gm != "" {
+									pluginConfig["method"] = gm
+									if cfg.Debug {
+										log.Printf("[APISIX-AGENT][DEBUG] auto fill grpc-transcode method: %v", gm)
+									}
+								} else {
+									log.Printf("[APISIX-AGENT] ERROR: grpc-transcode method missing for custom route %v, please set method field", cr.(RouteConfig).URI)
+								}
+							}
+							// 自动补全 proto_id 字段
+							if pluginConfig["proto_id"] == nil && cfg.ProtoPath != "" {
+								pluginConfig["proto_id"] = serviceID
+								if cfg.Debug {
+									log.Printf("[APISIX-AGENT][DEBUG] auto fill grpc-transcode proto_id: %v", serviceID)
+								}
+							}
+							// 自动补全 service 字段
+							if pluginConfig["service"] == nil && cfg.ServiceName != "" {
+								pluginConfig["service"] = "micro." + capitalize(cfg.ServiceName) + "Service"
+								if cfg.Debug {
+									log.Printf("[APISIX-AGENT][DEBUG] auto fill grpc-transcode service: %v", pluginConfig["service"])
+								}
+							}
+							// 强校验必填字段
+							for _, key := range []string{"method", "proto_id", "service"} {
+								if pluginConfig[key] == nil || pluginConfig[key] == "" {
+									log.Printf("[APISIX-AGENT] ERROR: grpc-transcode %s missing for custom route %v, please set %s field", key, cr.(RouteConfig).URI, key)
+								}
+							}
+						}
+						plugins[p.Name] = pluginConfig
+					}
+					route["plugins"] = plugins
+				}
+				if cfg.Debug {
+					log.Printf("[APISIX-AGENT][DEBUG] custom route to register: %+v", route)
+				}
+				if err := client.RegisterRoute(id, route); err != nil {
+					log.Printf("[APISIX-AGENT] RegisterRoute failed: %v", err)
+				} else {
+					log.Printf("[APISIX-AGENT] Route registered: %s %v", id, route)
+				}
+				continue
+			}
+		}
+		// ...原有 proto 解析注册逻辑...
+		if cfg.Debug {
+			log.Printf("[APISIX-AGENT][DEBUG] parsed route: %+v", r)
+		}
+		route = map[string]interface{}{
 			"id":         id,
 			"name":       id,
 			"desc":       "Auto registered by apisix-registry-agent",
@@ -142,7 +227,7 @@ func Run(cfg *Config) error {
 		if cfg.Debug {
 			log.Printf("[APISIX-AGENT][DEBUG] final route to register: %+v", route)
 		}
-		if err := client.RegisterRoute(id, route); err != nil {
+		if err := registerRouteWithRetry(client, id, route); err != nil {
 			log.Printf("[APISIX-AGENT] RegisterRoute failed: %v", err)
 		} else {
 			log.Printf("[APISIX-AGENT] Route registered: %s %v", id, route)
@@ -162,7 +247,7 @@ func Run(cfg *Config) error {
 					// 普通 proto 文件，直接用文本
 					content = string(protoContent)
 				}
-				if err := client.RegisterProto(serviceID, content); err != nil {
+				if err := registerProtoWithRetry(client, serviceID, content); err != nil {
 					log.Printf("[APISIX-AGENT] RegisterProto failed: %v", err)
 				} else {
 					log.Printf("[APISIX-AGENT] Proto registered: %s", serviceID)
@@ -180,14 +265,30 @@ func Run(cfg *Config) error {
 	defer stop()
 	<-ctx.Done()
 	log.Printf("[APISIX-AGENT] Deregistering...")
-	for i := range routes {
+	// 彻底清理所有与 proto_id 相关的路由
+	var failedRoutes []string
+	protoRoutes, _ := ParseProtoHttpRules(cfg.ProtoPath)
+	for i := range protoRoutes {
 		id := fmt.Sprintf("%s-%d", serviceID, i)
-		client.DeleteRoute(id)
+		if err := deleteRouteWithRetry(client, id); err != nil {
+			log.Printf("[APISIX-AGENT][Warn] Delete route error . %v", err)
+			failedRoutes = append(failedRoutes, id)
+		}
 	}
-	client.DeleteProto(serviceID)
-	client.DeleteService(serviceID)
+	// 检查 APISIX 是否还有残留路由引用 proto_id
+	if len(failedRoutes) > 0 {
+		log.Printf("[APISIX-AGENT][Warn] Some routes failed to delete: %v", failedRoutes)
+	}
+	// 主动查询 APISIX 路由，彻底清理所有 proto_id 相关路由
+	if err := forceDeleteProtoRelatedRoutes(client, serviceID); err != nil {
+		log.Printf("[APISIX-AGENT][Warn] forceDeleteProtoRelatedRoutes: %v", err)
+	}
+	if err := deleteProtoWithRetry(client, serviceID); err != nil {
+		log.Printf("[APISIX-AGENT][Warn] DeleteProto error: %v", err)
+	}
+	deleteServiceWithRetry(client, serviceID)
 	if cfg.Upstream != nil {
-		client.DeleteUpstream(serviceID)
+		deleteUpstreamWithRetry(client, serviceID)
 	}
 	log.Printf("[APISIX-AGENT] Deregistration complete.")
 	return nil
@@ -196,4 +297,124 @@ func Run(cfg *Config) error {
 // encodeBase64 工具函数
 func encodeBase64(data []byte) string {
 	return base64.StdEncoding.EncodeToString(data)
+}
+
+// capitalize 首字母大写
+func capitalize(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// 幂等重试工具
+func retryN(n int, op func() error, desc string) error {
+	var err error
+	for i := 0; i < n; i++ {
+		err = op()
+		if err == nil {
+			return nil
+		}
+		log.Printf("[APISIX-AGENT][Retry] %s failed (try %d/%d): %v", desc, i+1, n, err)
+	}
+	return err
+}
+
+// RegisterRoute 幂等重试
+func registerRouteWithRetry(client *ApisixClient, id string, route map[string]interface{}) error {
+	desc := "RegisterRoute " + id
+	return retryN(3, func() error {
+		return client.RegisterRoute(id, route)
+	}, desc)
+}
+
+// DeleteRoute 幂等重试
+func deleteRouteWithRetry(client *ApisixClient, id string) error {
+	desc := "DeleteRoute " + id
+	return retryN(3, func() error {
+		return client.DeleteRoute(id)
+	}, desc)
+}
+
+// RegisterService 幂等重试
+func registerServiceWithRetry(client *ApisixClient, id string, svc map[string]interface{}) error {
+	desc := "RegisterService " + id
+	return retryN(3, func() error {
+		return client.RegisterService(id, svc)
+	}, desc)
+}
+
+// RegisterUpstream 幂等重试
+func registerUpstreamWithRetry(client *ApisixClient, id string, upstream map[string]interface{}) error {
+	desc := "RegisterUpstream " + id
+	return retryN(3, func() error {
+		return client.RegisterUpstream(id, upstream)
+	}, desc)
+}
+
+// RegisterProto 幂等重试
+func registerProtoWithRetry(client *ApisixClient, id string, content string) error {
+	desc := "RegisterProto " + id
+	return retryN(3, func() error {
+		return client.RegisterProto(id, content)
+	}, desc)
+}
+
+// DeleteProto 幂等重试
+func deleteProtoWithRetry(client *ApisixClient, id string) error {
+	desc := "DeleteProto " + id
+	return retryN(3, func() error {
+		return client.DeleteProto(id)
+	}, desc)
+}
+
+// DeleteService 幂等重试
+func deleteServiceWithRetry(client *ApisixClient, id string) error {
+	desc := "DeleteService " + id
+	return retryN(3, func() error {
+		return client.DeleteService(id)
+	}, desc)
+}
+
+// DeleteUpstream 幂等重试
+func deleteUpstreamWithRetry(client *ApisixClient, id string) error {
+	desc := "DeleteUpstream " + id
+	return retryN(3, func() error {
+		return client.DeleteUpstream(id)
+	}, desc)
+}
+
+// 强制彻底清理所有引用 proto_id 的路由
+func forceDeleteProtoRelatedRoutes(client *ApisixClient, protoID string) error {
+	// 查询所有路由
+	resp, err := client.doRequest("GET", "/routes", nil)
+	if err != nil {
+		return fmt.Errorf("query routes failed: %w", err)
+	}
+	var data struct {
+		Nodes []struct {
+			Value map[string]interface{} `json:"value"`
+		} `json:"nodes"`
+	}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return fmt.Errorf("unmarshal routes failed: %w", err)
+	}
+	for _, node := range data.Nodes {
+		v := node.Value
+		plugins, ok := v["plugins"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		gt, ok := plugins["grpc-transcode"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if pid, ok := gt["proto_id"].(string); ok && pid == protoID {
+			if id, ok := v["id"].(string); ok {
+				log.Printf("[APISIX-AGENT][Warn] Force delete route %s referencing proto_id %s", id, protoID)
+				client.DeleteRoute(id)
+			}
+		}
+	}
+	return nil
 }

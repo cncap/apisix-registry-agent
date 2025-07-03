@@ -10,26 +10,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	// APISIX 管理 API 地址和密钥
-	// 支持通过环境变量 APISIX_ADMIN_API 和 APISIX_ADMIN_KEY 设置
-	// 如果未设置，则使用默认值 http://
-	Debug          bool          `yaml:"debug"`
-	AdminAPI       string        `yaml:"admin_api"`
-	AdminKey       string        `yaml:"admin_key"`
-	ServiceVersion string        `yaml:"service_version"`
-	ServiceName    string        `yaml:"service_name"`
-	ServiceID      string        `yaml:"service_id"`
-	ServicePort    int           `yaml:"service_port"`
-	ProtoPath      string        `yaml:"proto_path"`
-	ProtoPbPath    string        `yaml:"proto_pb_path"`
-	RoutePlugins   []PluginSpec  `yaml:"route_plugins"`
-	Upstream       *UpstreamSpec `yaml:"upstream,omitempty"`
-	TTL            int           `yaml:"ttl"`
-	MaxRetry       int           `yaml:"max_retry"`
-	RetryInterval  time.Duration `yaml:"retry_interval"`
-}
-
 type PluginSpec struct {
 	Name   string                 `yaml:"name"`
 	Config map[string]interface{} `yaml:"config"`
@@ -38,6 +18,41 @@ type PluginSpec struct {
 type UpstreamSpec struct {
 	Type  string         `yaml:"type"`
 	Nodes map[string]int `yaml:"nodes"`
+}
+
+type ConsumerConfig struct {
+	Name           string `yaml:"name"`
+	JwtEnabled     bool   `yaml:"jwt_enabled"`
+	KeyAuthEnabled bool   `yaml:"key_auth_enabled"`
+	KeyAuthKey     string `yaml:"key_auth_key"`
+}
+
+type RouteConfig struct {
+	URI     string       `yaml:"uri"`
+	Methods []string     `yaml:"methods"`
+	Plugins []PluginSpec `yaml:"plugins"`
+}
+
+type Config struct {
+	// APISIX 管理 API 地址和密钥
+	// 支持通过环境变量 APISIX_ADMIN_API 和 APISIX_ADMIN_KEY 设置
+	// 如果未设置，则使用默认值 http://
+	Debug          bool             `yaml:"debug"`
+	AdminAPI       string           `yaml:"admin_api"`
+	AdminKey       string           `yaml:"admin_key"`
+	ServiceVersion string           `yaml:"service_version"`
+	ServiceName    string           `yaml:"service_name"`
+	ServiceID      string           `yaml:"service_id"`
+	ServicePort    int              `yaml:"service_port"`
+	ProtoPath      string           `yaml:"proto_path"`
+	ProtoPbPath    string           `yaml:"proto_pb_path"`
+	RoutePlugins   []PluginSpec     `yaml:"route_plugins"`
+	Upstream       *UpstreamSpec    `yaml:"upstream,omitempty"`
+	TTL            int              `yaml:"ttl"`
+	MaxRetry       int              `yaml:"max_retry"`
+	RetryInterval  time.Duration    `yaml:"retry_interval"`
+	Consumers      []ConsumerConfig `yaml:"consumers"`
+	Routes         []RouteConfig    `yaml:"routes"`
 }
 
 func LoadConfig(path string) (*Config, error) {
